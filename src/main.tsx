@@ -1,6 +1,7 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
 import { ChakraProvider, createSystem, defaultConfig, defineConfig} from "@chakra-ui/react"
+import { BrowserRouter } from "react-router-dom"
 import App from "./App.tsx"
 
 const config = defineConfig({
@@ -30,9 +31,11 @@ export const system = createSystem(defaultConfig, config)
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <ChakraProvider value={system}>
-      <App />
-    </ChakraProvider>
+    <BrowserRouter>
+      <ChakraProvider value={system}>
+        <App />
+      </ChakraProvider>
+    </BrowserRouter>
   </React.StrictMode>
 )
 
