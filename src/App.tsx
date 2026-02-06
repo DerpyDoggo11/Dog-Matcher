@@ -1,19 +1,44 @@
-import { Box, Button, Heading, Image } from '@chakra-ui/react'
+import { Box, Button, Heading} from '@chakra-ui/react'
+import { ColorModeProvider } from './components/ui/color-mode'
+import { motion } from "framer-motion"
+
+const MotionHeading = motion(Heading)
 
 function App() {
   return (
-    <Box p={8}>
-      <Heading mb={4}>Dog Breed Recognizer</Heading>
+    <ColorModeProvider forcedTheme="dark">
+      <Box minH="100vh" w="100%" position="relative" textAlign="center" mt={0} p={4} bg="backgroundPrimary" color="textPrimary">
+        
+        <Box position="relative" textAlign="center" w="100%" mt={4} p={4}>
+          <MotionHeading mb={4} fontFamily="title" color="textPrimary" 
+          animate={{ 
+            //y: [0, -8, 0, 8, 0],
+            scale: [1, 1.05, 1], 
+            color: ["#fff", "#ddd", "#fff"], 
+          }} 
+          transition={{ 
+            duration: 2, 
+            repeat: Infinity, 
+            ease: "easeInOut", 
+          }}>Dog Matcher</MotionHeading>
+        </Box>
 
-      <Button colorScheme="teal">Upload Photo</Button>
+        <Box position="relative" mt={4} p={4}>
 
-      <Image
-        src="https://place-puppy.com/300x300"
-        alt="dog"
-        mt={6}
-        borderRadius="lg"
-      />
-    </Box>
+          <Box position="relative" w="100%" p={2}>
+            <Button bg="backgroundSecondary" color="textPrimary" fontFamily="body">Easy Difficulty</Button>
+          </Box>
+          <Box position="relative" w="100%" p={2}>
+            <Button bg="backgroundSecondaryMedium" color="textPrimary" fontFamily="body">Medium Difficulty</Button>
+          </Box>
+          <Box position="relative" w="100%" p={2}>
+            <Button  bg="backgroundSecondaryDark" color="textPrimary" fontFamily="body">Hard Difficulty</Button>
+          </Box>
+        
+        </Box>
+
+      </Box>
+    </ColorModeProvider>
   )
 }
 
