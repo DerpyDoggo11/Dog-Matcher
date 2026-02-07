@@ -1,5 +1,5 @@
 import {Box, Heading, Input, Image, Button} from '@chakra-ui/react'
-import {useEffect, useRef, useState} from "react"
+import {useEffect, useMemo, useRef, useState} from "react"
 import {motion} from "framer-motion"
 import {useNavigate, useSearchParams} from "react-router-dom"
 
@@ -7,12 +7,71 @@ const MotionHeading = motion(Heading)
 const MotionButton = motion(Button)
 
 const normalizeBreedString: Record<string, string> = {
-  "germanshepherd": "german shepherd",
-  "stbernard": "saint bernard",
+  "leonberg": "leonberger",
+  "shiba": "shiba inu",
+  "malamute": "alaskan malamute",
   "mexicanhairless": "mexican hairless dog",
+  "stbernard": "saint bernard",
   "africanwilddog": "african wild dog",
   "bernese mountain": "bernese mountain dog",
+  "hound blood": "blood hound",
+  "hound afghan": "afghan hound",
+  "hound ibizan": "ibizan hound",
+  "hound plott": "plott hound",
+  "hound walker": "walker hound",
+  "hound basset": "basset hound",
+  "collie rough": "rough collie",
+  "collie border": "border collie",
   "shepherd australian": "australian shepherd",
+  "shepherd german": "german shepherd",
+  "swedish danish": "danish swedish farmdog",
+  "retriever golden": "golden retriever",
+  "retriever curly": "curly coated retriever",
+  "retriever flatcoated": "flat coated retriever",
+  "retriever chesapeake": "chesapeake bay retriever",
+  "poodle miniature": "miniature poodle",
+  "poodle toy": "toy poodle",
+  "poodle standard": "standard poodle",
+  "spaniel cocker": "cocker spaniel",
+  "spaniel sussex": "sussex spaniel",
+  "spaniel japanese": "japanese spaniel",
+  "spaniel blenheim": "blenheim spaniel",
+  "spaniel brittany": "brittany spaniel",
+  "spaniel irish": "irish water spaniel",
+  "terrier bedlington": "bedlington terrier",
+  "terrier border": "border terrier",
+  "terrier cairn": "cairn terrier",
+  "terrier dandie": "dandie dinmont terrier",
+  "terrier fox": "fox terrier",
+  "terrier irish": "irish terrier",
+  "terrier kerryblue": "kerry blue terrier",
+  "terrier lakeland": "lakeland terrier",
+  "terrier norfolk": "norfolk terrier",
+  "terrier norwich": "norwich terrier",
+  "terrier patterdale": "patterdale terrier",
+  "terrier russell": "jack russell terrier",
+  "terrier scottish": "scottish terrier",
+  "terrier sealyham": "sealyham terrier",
+  "terrier silky": "silky terrier",
+  "terrier tibetan": "tibetan terrier",
+  "terrier welsh": "welsh terrier",
+  "terrier westhighland": "west highland white terrier",
+  "terrier wheaten": "soft coated wheaten terrier",
+  "terrier yorkshire": "yorkshire terrier",
+  "setter irish": "irish setter",
+  "setter english": "english setter",
+  "setter gordon": "gordon setter",
+  "bulldog french": "french bulldog",
+  "bulldog english": "english bulldog",
+  "bulldog boston": "boston terrier",
+  "mountain swiss": "greater swiss mountain dog",
+  "mountain appenzeller": "appenzeller mountain dog",
+  "mountain bernese": "bernese mountain dog",
+  "mastiff bull": "bullmastiff",
+  "mastiff tibetan": "tibetan mastiff",
+  "sheepdog oldenglish": "old english sheepdog",
+  "sheepdog shetland": "shetland sheepdog",
+  "spitz japanese": "japanese spitz",
 };
 
 
@@ -27,8 +86,11 @@ function extractBreed(url: string) {
     breed = `${sub} ${main}`;
   }
 
-  const key = raw.toLowerCase();
+  console.log("Extracted breed:", breed)
+  const key = breed.toLowerCase();
+  console.log("Normalization key:", key)
   if (normalizeBreedString[key]) {
+    console.log("Found normalized breed:", normalizeBreedString[key])
     return normalizeBreedString[key];
   }
 
@@ -88,7 +150,12 @@ export default function Play() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [guess, setGuess] = useState("");
 
-  const currentBreed = images[currentIndex] ? extractBreed(images[currentIndex]) : "";
+  //const currentBreed = images[currentIndex] ? extractBreed(images[currentIndex]) : "";
+  const currentBreed = useMemo(() => {
+    if (!images[currentIndex]) return "";
+    return extractBreed(images[currentIndex]);
+  }, [images, currentIndex]);
+
   const [hintedBreedName, setHintedBreedName] = useState("");
 
   const revealInterval = Math.ceil(hintFrequency / currentBreed.length);
@@ -114,17 +181,21 @@ export default function Play() {
     if (isTransitioningRef.current) return
     isTransitioningRef.current = true
     setHintedBreedName(currentBreed)
+
     setTimeout(() => {
-        if (currentIndex + 1 < images.length) {
-          setCurrentIndex(i => i + 1)
+      setCurrentIndex(i => {
+        const next = i + 1
+        if (next < images.length) {
           setGuess("")
           setTimeLeft(timePerImage)
           lastRevealRef.current = null
+          isTransitioningRef.current = false;
+          return next
         } else {
-          navigate(`/summary?difficulty=${difficulty}`)
-        }
-        isTransitioningRef.current = false;
-      }, 2000);
+            navigate(`/summary?difficulty=${difficulty}`)
+            return i
+        }})
+      }, 2000)
   }
   
   function handleSubmit(forceWrong = false) {
@@ -155,8 +226,9 @@ export default function Play() {
           return prev;
         }
         
-        if (prev <= 1) {
+        if (prev < 1) {
           handleSubmit(true)
+          nextPage()
           // setCurrentIndex(i => {
           //   const next = i + 1
           //   if (next < images.length) {
@@ -194,9 +266,9 @@ export default function Play() {
   
 
 
-  return <Box minH="100vh" w="100%" position="relative" textAlign="center" p={4} bg="backgroundPrimary" color="textPrimary" overflow="hidden">
-    <Box position="relative" textAlign="center" w="100%" p={4}>
-      <MotionHeading mb={4} fontFamily="title" color="textPrimary" fontSize="2xl"
+  return <Box minH="100vh" w="100%" position="relative" textAlign="center" bg="backgroundPrimary" color="textPrimary" overflow="hidden">
+    <Box position="relative" textAlign="center" w="100%">
+      <MotionHeading fontFamily="title" color="textPrimary" fontSize="2xl" p={2}
       animate={{
         scale: [1, 1.05, 1], 
         color: ["#fff", "#ddd", "#fff"], 
@@ -208,10 +280,10 @@ export default function Play() {
       }}>Time Left: {timeLeft}s</MotionHeading>
     </Box>
     
-    <Box position="relative" textAlign="center" w="100%" p={4}>
-      <Image src={images[currentIndex]} boxSize="300px" objectFit="contain" borderRadius="md" mx="auto"/>
+    <Box position="relative" textAlign="center" w="100%">
+      <Image src={images[currentIndex]} boxSize="400px" objectFit="contain" borderRadius="md" mx="auto"/>
 
-      <Box position="relative" textAlign="center" w="100%" p={4}>
+      <Box position="relative" textAlign="center" w="100%">
         <MotionHeading mb={4} fontFamily="title" color="textPrimary" fontSize="2xl"
         animate={shakeWrongAnswer ? "wrong" : shakeCorrectAnswer ? "correct" : "normal"}
         variants={{
