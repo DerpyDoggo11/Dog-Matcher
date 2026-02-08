@@ -1,5 +1,4 @@
 import {Box, Button, Heading, Image, Carousel, IconButton} from '@chakra-ui/react'
-import {useState} from "react"
 import {motion} from "framer-motion"
 import {useNavigate, useLocation} from "react-router-dom"
 import { LuChevronLeft, LuChevronRight } from "react-icons/lu"
@@ -22,7 +21,6 @@ export default function Summary() {
     const navigate = useNavigate()
     const { state } = useLocation(); 
     const history: HistoryEntry[] = state?.history || [];
-    const [currentPage, setPage] = useState(0)
      
     
     
