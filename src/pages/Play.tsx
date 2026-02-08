@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */ // <- breaks builds
 import {Box, Heading, Input, Image, Button} from '@chakra-ui/react'
-import {useEffect, useMemo, useRef, useState} from "react"
+import {useCallback, useEffect, useMemo, useRef, useState} from "react"
 import {motion} from "framer-motion"
 import {useNavigate, useSearchParams} from "react-router-dom"
 
@@ -175,19 +175,18 @@ function revealNextHint(currentBreed: string, hintedBreedName: string) {
 }
 
 function getTimerColor(timeLeft: number, total: number) {
-  const ratio = timeLeft / total
-  if (ratio > 0.5) return "#4caf50"
-  if (ratio > 0.25) return "#ffeb3b"
-  return "#f44336"
+  const ratio = timeLeft / total;
+  if (ratio > 0.5) return "#4caf50";
+  if (ratio > 0.25) return "#ffeb3b";
+  return "#f44336";
 }
 
 function getTimerSpeed(timeLeft: number, total: number) {
-  const ratio = timeLeft / total
-  console.log("Timer ratio:", ratio)
-  if (ratio > 0.5) return 1
-  if (ratio > 0.25) return 0.75
-  if (ratio == 0) return 0
-  return 0.5
+  const ratio = timeLeft / total;
+  if (ratio > 0.5) return 1;
+  if (ratio > 0.25) return 0.75;
+  if (ratio == 0) return 0;
+  return 0.5;
 }
 
 type HistoryEntry = {
@@ -206,9 +205,9 @@ async function fetchDogImages(imageAmounts = 5, difficulty: string = "easy") { /
 
     let res;
     if (difficulty === "easy") {
-      res = await fetch(`https://dog.ceo/api/breed/${rawEasyModeBreeds[randomIndex]}/images/random`)
+      res = await fetch(`https://dog.ceo/api/breed/${rawEasyModeBreeds[randomIndex]}/images/random`);
     } else {
-      res = await fetch("https://dog.ceo/api/breeds/image/random")
+      res = await fetch("https://dog.ceo/api/breeds/image/random");
     }
     
     const data = await res.json();
@@ -221,31 +220,37 @@ async function fetchDogImages(imageAmounts = 5, difficulty: string = "easy") { /
 
 
 export default function Play() {
-  const [params] = useSearchParams() 
-  const difficulty = params.get("difficulty") || "unknown"
+  const [params] = useSearchParams();
+  const difficulty = params.get("difficulty") || "unknown";
 
-  let timePerImage = 30
-  let hintFrequency = 35
-  if (difficulty == "medium") {
-    timePerImage = 20
-    hintFrequency = 25
-  } else if (difficulty == "hard") {
-    timePerImage = 10
-    hintFrequency = 15
-  }
+  const { timePerImage, hintFrequency } = useMemo(() => {
+    if (difficulty === "medium") {
+      return { timePerImage: 20, hintFrequency: 25 };
+    }
+    if (difficulty === "hard") {
+      return { timePerImage: 10, hintFrequency: 15 };
+    }
+    return { timePerImage: 30, hintFrequency: 35 };
+  }, [difficulty]);
 
-  const [images, setImages] = useState<string[]>([])
-  const navigate = useNavigate()
+
+  const [images, setImages] = useState<string[]>([]);
+  const navigate = useNavigate();
   
-  useEffect(() => { 
+  const isBreedLoaded = useRef(false); // load only once
+  useEffect(() => {
+    if (isBreedLoaded.current == true) return;
+    isBreedLoaded.current = true
     async function load() { 
       const imgs = await fetchDogImages(5, difficulty); 
       setImages(imgs); 
     } 
-    load();
-  }, [])
 
-  const [currentIndex, setCurrentIndex] = useState(0)
+    load();
+    console.log("fetching images")
+  }, [difficulty]);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [guess, setGuess] = useState("");
 
   const currentBreed = useMemo(() => {
@@ -259,161 +264,163 @@ export default function Play() {
 
 
   useEffect(() => {
-    console.log("New breed:", currentBreed)
     setHintedBreedName(getObfuscatedBreedName(currentBreed));
   }, [currentBreed]);
 
-  const [, setHistory] = useState<HistoryEntry[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [currentGuesses, setCurrentGuesses] = useState<string[]>([]);
-  const [timeLeft, setTimeLeft] = useState(timePerImage)
+  const [timeLeft, setTimeLeft] = useState(timePerImage);
   const [shakeWrongAnswer, setShakeWrongAnswer] = useState(false);
   const [shakeCorrectAnswer, setShakeCorrectAnswer] = useState(false);
 
-  const intervalRef = useRef<number | undefined>(undefined);
-  const lastRevealRef = useRef<number | null>(null);
-  const isTransitioningRef = useRef(false);
-  const isSubmittingRef = useRef(false);
+  const intervalRef = useRef<number | undefined>(undefined); // prevents multiple loops for occuring at the same time
+  const isTransitioningRef = useRef(false); // stops all loops from running until the animation is over
 
+  const moveToNextPage = useCallback((updatedHistory: HistoryEntry[]) => {
+    setHintedBreedName(currentBreed);
 
-  function nextPage() {
-    if (isTransitioningRef.current) return
-    isTransitioningRef.current = true
-    setHintedBreedName(currentBreed)
+    console.log("moving to next page")
 
     setTimeout(() => {
       setCurrentIndex(i => {
         const next = i + 1
         if (next < images.length) {
-          setGuess("")
+          setGuess("");
           setCurrentGuesses([]); 
-          setTimeLeft(timePerImage)
-          lastRevealRef.current = null
+          setTimeLeft(timePerImage);
           isTransitioningRef.current = false;
-          return next
-        }
-
-        return i
-      })
-    }, 2000)
-  }
-  
-  function handleSubmit(forceWrong = false) {
-    if (isSubmittingRef.current) return
-    isSubmittingRef.current = true
-
-    const newGuesses = [...currentGuesses, guess];
-    setCurrentGuesses(newGuesses);
-
-    const correct = normalize(currentBreed) === normalize(guess)
-
-    if (correct && !forceWrong) {
-      setShakeCorrectAnswer(true);
-      setTimeout(() => setShakeCorrectAnswer(false), 1000);
-      
-      const newEntry: HistoryEntry = { 
-        image: images[currentIndex], 
-        correctBreed: currentBreed, 
-        guesses: newGuesses, 
-        isCorrect: true, 
-        timeUntilCorrect: timePerImage - timeLeft, 
-      } 
-
-      setHistory(prev => { 
-        const updated = [...prev, newEntry]; 
-        if (currentIndex === images.length - 1) { 
-          navigate(`/summary?difficulty=${difficulty}`, { 
-            state: { history: updated } 
-          }); 
-        } else { 
-          nextPage(); 
-        } 
-        return updated; 
-      })
-      
-    } else {
-      setGuess("")
-      setShakeWrongAnswer(true);
-      setTimeout(() => setShakeWrongAnswer(false), 1000);
-
-      setHistory(prev => { 
-        const updated = [...prev]; 
-        updated[currentIndex] = { 
-          image: images[currentIndex], 
-          correctBreed: currentBreed, 
-          guesses: newGuesses, 
-          isCorrect: false, 
-          timeUntilCorrect: timePerImage - timeLeft, 
-        }
-        return updated
-      })
-    }
-
-    setTimeout(() => { 
-      isSubmittingRef.current = false; 
-    }, 300); 
-  }
-
-  useEffect(() => {
-
-    if (intervalRef.current !== undefined) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = undefined;
-    }
-
-    intervalRef.current = setInterval(() => {
-
-      if (isSubmittingRef.current || isTransitioningRef.current) return
-
-
-      setTimeLeft(prev => {
-        if (prev < 1) {
-          const newEntry: HistoryEntry = {
-            image: images[currentIndex],
-            correctBreed: currentBreed,
-            guesses: currentGuesses,
-            isCorrect: false,
-            timeUntilCorrect: timePerImage,
-          }
-          
-          setHistory(previousHistory =>{
-            const updated = [...previousHistory, newEntry]
-            if (currentIndex === images.length - 1) {
-              navigate(`/summary?difficulty=${difficulty}`, {
-                state: { history: updated }
-              })
-            } else {
-              nextPage()
-            }
-            return updated
-          })
-  
-          return timePerImage
+          return next;
         }
         
-        if (prev % revealInterval === 0) {
-          if (lastRevealRef.current !== prev) {
-            lastRevealRef.current = prev;
-            setHintedBreedName(prev => {
-              if (!currentBreed || prev.length !== currentBreed.length) {
-                return prev;
-              }
-              return revealNextHint(currentBreed, prev);
-            });
+        navigate(`/summary?difficulty=${difficulty}`, {
+          state: {history: updatedHistory}
+        });
+        return i;
+      });
+    }, 2000);
+  }, [currentBreed, images.length, timePerImage, navigate, difficulty]);
+
+  const buildHistoryEntry = useCallback((isCorrect: boolean, guesses: string[]): HistoryEntry => ({
+    image: images[currentIndex],
+    correctBreed: currentBreed,
+    guesses: guesses,
+    isCorrect: isCorrect,
+    timeUntilCorrect: timePerImage - timeLeft,
+  }), [images, currentIndex, currentBreed, currentGuesses, timePerImage, timeLeft]);
+
+  const finalizeRound = useCallback((isCorrect: boolean, guesses: string[]) => {
+      if (isTransitioningRef.current) return; 
+      isTransitioningRef.current = true; 
+    
+      const entry = buildHistoryEntry(isCorrect, guesses);
+      const updatedHistory = [...history, entry];
+      setHistory(updatedHistory);
+      moveToNextPage(updatedHistory);
+    }, [buildHistoryEntry, moveToNextPage, history]
+  )
+  
+  const handleSubmit = useCallback(
+    (forceWrong = false) =>{
+
+      if (isTransitioningRef.current) {
+        console.log("already transitioning, ignoring submit");
+        return;
+      }
+      const newGuesses = forceWrong ? currentGuesses : [...currentGuesses, guess];
+      setCurrentGuesses(newGuesses);
+
+      const correct = normalize(currentBreed) === normalize(guess);
+
+      if (correct) {
+        setGuess("");
+        setShakeCorrectAnswer(true);
+        setTimeout(() => setShakeCorrectAnswer(false), 1000);
+        finalizeRound(true, newGuesses);
+        return;
+      }
+
+      if (forceWrong) {
+        setGuess("");
+        setShakeWrongAnswer(true);
+        setTimeout(() => setShakeWrongAnswer(false), 1000);
+        finalizeRound(false, newGuesses)
+        return;
+      }
+
+      setGuess("");
+      setShakeWrongAnswer(true);
+      setTimeout(() => setShakeWrongAnswer(false), 1000);
+      return;
+
+    }, [currentGuesses, guess, currentBreed, finalizeRound]);
+
+  const breedRef = useRef(currentBreed); 
+  const revealRef = useRef(revealInterval); 
+  const timeRef = useRef(timePerImage); 
+  const submitRef = useRef(handleSubmit);
+
+  const hintGuardRef = useRef(false);
+
+  
+  useEffect(() => {breedRef.current = currentBreed}, [currentBreed]); 
+  useEffect(() => {revealRef.current = revealInterval}, [revealInterval]); 
+  useEffect(() => {timeRef.current = timePerImage}, [timePerImage]); 
+  useEffect(() => {submitRef.current = handleSubmit}, [handleSubmit]);
+
+  useEffect(() => {setTimeLeft(timePerImage)}, [currentIndex]);
+
+  useEffect(() => {
+    if (intervalRef.current !== undefined) { 
+      clearInterval(intervalRef.current); 
+      intervalRef.current = undefined; 
+    }
+
+    console.log("setting up interval")
+
+    let hasCalledTimeUp = false; // Local flag to prevent double calls
+
+    intervalRef.current = setInterval(() => {
+      if (isTransitioningRef.current) {
+        console.log("currently transitioning, skipping timer tick")
+        return;
+      }
+
+      setTimeLeft(currentTime => {
+        console.log(currentTime)
+        if (currentTime < 1) {
+          if (!hasCalledTimeUp) {
+          console.log("time is up")
+          hasCalledTimeUp = true; // Prevent this interval from calling again
+          submitRef.current(true);
           }
+          return 0;
         }
 
-        return prev - 1
-      })
-    }, 1000)
-    return () => {
+        if (currentTime % revealRef.current === 0) {
+
+          setHintedBreedName(previousHintedName => {
+            if (hintGuardRef.current) return previousHintedName
+            hintGuardRef.current = true
+            requestAnimationFrame(() => (hintGuardRef.current = false))
+
+            const breed = breedRef.current;
+            if (!breed || previousHintedName.length !== breed.length) return previousHintedName;
+            return revealNextHint(breed, previousHintedName);
+          });
+        }
+
+        return currentTime - 1;
+      });
+    }, 1000);
+
+    return () =>  {
       if (intervalRef.current !== undefined) {
         clearInterval(intervalRef.current)
         intervalRef.current = undefined;
       }
     }
-  }, [currentIndex, revealInterval, currentBreed, timePerImage])
-  
-
+    
+  }, [currentIndex]);
 
   return <Box minH="100vh" w="100%" position="relative" textAlign="center" bg="backgroundPrimary" color="textPrimary" overflow="hidden" >
     <Box position="relative" textAlign="center" w="100%" p={4}>

@@ -65,7 +65,9 @@ export default function Summary() {
                                                 {guess}
                                             </Box>
                                         ))}
-                                        <Heading size="sm" mt={2}>Solved in {entry.timeUntilCorrect} seconds</Heading>
+                                        {entry.isCorrect && (
+                                            <Heading size="sm" mt={2}>Solved in {entry.timeUntilCorrect} seconds</Heading>
+                                        )}
                                     </Box>
                                 )}
                             </Box>
