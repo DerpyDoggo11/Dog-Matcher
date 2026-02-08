@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */ // <- breaks builds
 import {Box, Heading, Input, Image, Button} from '@chakra-ui/react'
 import {useEffect, useMemo, useRef, useState} from "react"
 import {motion} from "framer-motion"
@@ -6,13 +7,13 @@ import {useNavigate, useSearchParams} from "react-router-dom"
 const MotionHeading = motion(Heading)
 const MotionButton = motion(Button)
 
-const normalizeBreedString: Record<string, string> = {
+const normalizeBreedString: Record<string, string> = { // <- Used AI to generate this mapping (takes too long otherwise)
   "leonberg": "leonberger",
   "shiba": "shiba inu",
   "malamute": "alaskan malamute",
-  "mexicanhairless": "mexican hairless dog",
+  "mexican hairless": "mexican hairless dog",
   "stbernard": "saint bernard",
-  "africanwilddog": "african wild dog",
+  "african wild": "african wild dog",
   "bernese mountain": "bernese mountain dog",
   "swiss mountain": "swiss mountain dog",
   "appenzeller mountain": "appenzeller mountain dog",
@@ -31,7 +32,7 @@ const normalizeBreedString: Record<string, string> = {
   "swedish danish": "danish swedish farmdog",
   "retriever golden": "golden retriever",
   "retriever curly": "curly coated retriever",
-  "retriever flatcoated": "flat coated retriever",
+  "retriever flatcoated": "flatcoated retriever",
   "retriever chesapeake": "chesapeake bay retriever",
   "poodle miniature": "miniature poodle",
   "poodle toy": "toy poodle",
@@ -78,10 +79,60 @@ const normalizeBreedString: Record<string, string> = {
   "spitz japanese": "japanese spitz",
 };
 
+const rawEasyModeBreeds = [ // <- also used ai here
+  "beagle",
+  "pug",
+  "shiba",
+  "chihuahua",
+  "dachshund",
+  "boxer",
+  "bulldog",
+  "corgi",
+  "pomeranian",
+  "bichon",
+  "boston",
+  "french",
+  "poodle",
+  "labrador",
+  "retriever",      
+  "shepherd",       
+  "husky",
+  "collie",         
+  "spaniel",        
+  "shihtzu",
+  "hound",         
+  "akita",
+  "samoyed",
+  "whippet",
+  "greyhound",
+  "saluki",
+  "papillon",
+  "maltese",
+  "pumi",
+  "kuvasz",
+  "vizsla",
+  "otterhound",
+  "keeshond",
+  "schipperke",
+  "kelpie",
+  "komondor",
+  "borzoi",
+  "harrier",
+  "setter",         
+  "pointer",        
+  "terrier",        
+  "sheepdog",
+  "mastiff",
+  "pinscher",
+  "spitz",
+  "wolfhound"
+];
+
+
 
 function extractBreed(url: string) {
   const parts = url.split("/breeds/")[1].split("/");
-  const raw = parts[0]; // e.g. "bernese-mountain"
+  const raw = parts[0];
 
   let breed = raw;
 
@@ -90,11 +141,8 @@ function extractBreed(url: string) {
     breed = `${sub} ${main}`;
   }
 
-  console.log("Extracted breed:", breed)
   const key = breed.toLowerCase();
-  console.log("Normalization key:", key)
   if (normalizeBreedString[key]) {
-    console.log("Found normalized breed:", normalizeBreedString[key])
     return normalizeBreedString[key];
   }
 
@@ -150,6 +198,27 @@ type HistoryEntry = {
   timeUntilCorrect: number;
 };
 
+async function fetchDogImages(imageAmounts = 5, difficulty: string = "easy") { // <- pun intended :D
+  const results: string[] = [];
+
+  for (let i = 0; i < imageAmounts; i++) {
+    const randomIndex = Math.floor(Math.random() * rawEasyModeBreeds.length);
+
+    let res;
+    if (difficulty === "easy") {
+      res = await fetch(`https://dog.ceo/api/breed/${rawEasyModeBreeds[randomIndex]}/images/random`)
+    } else {
+      res = await fetch("https://dog.ceo/api/breeds/image/random")
+    }
+    
+    const data = await res.json();
+    const url = data.message;
+    results.push(url);
+  }
+
+  return results;
+}
+
 
 export default function Play() {
   const [params] = useSearchParams() 
@@ -169,16 +238,16 @@ export default function Play() {
   const navigate = useNavigate()
   
   useEffect(() => { 
-    console.log('Fetching images')
-    fetch("https://dog.ceo/api/breeds/image/random/5") 
-      .then(res => res.json()) 
-      .then(data => setImages(data.message)) 
+    async function load() { 
+      const imgs = await fetchDogImages(5, difficulty); 
+      setImages(imgs); 
+    } 
+    load();
   }, [])
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [guess, setGuess] = useState("");
 
-  //const currentBreed = images[currentIndex] ? extractBreed(images[currentIndex]) : "";
   const currentBreed = useMemo(() => {
     if (!images[currentIndex]) return "";
     return extractBreed(images[currentIndex]);
@@ -210,8 +279,6 @@ export default function Play() {
     if (isTransitioningRef.current) return
     isTransitioningRef.current = true
     setHintedBreedName(currentBreed)
-
-    console.log("HISTORY LENGTH:", history.length, history);
 
     setTimeout(() => {
       setCurrentIndex(i => {
