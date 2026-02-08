@@ -263,7 +263,7 @@ export default function Play() {
     setHintedBreedName(getObfuscatedBreedName(currentBreed));
   }, [currentBreed]);
 
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [, setHistory] = useState<HistoryEntry[]>([]);
   const [currentGuesses, setCurrentGuesses] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState(timePerImage)
   const [shakeWrongAnswer, setShakeWrongAnswer] = useState(false);
