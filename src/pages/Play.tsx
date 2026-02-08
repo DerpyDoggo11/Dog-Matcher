@@ -14,6 +14,10 @@ const normalizeBreedString: Record<string, string> = {
   "stbernard": "saint bernard",
   "africanwilddog": "african wild dog",
   "bernese mountain": "bernese mountain dog",
+  "swiss mountain": "swiss mountain dog",
+  "appenzeller mountain": "appenzeller mountain dog",
+  "pyrenees": "great pyrenees",
+  "chow": "chow chow",
   "hound blood": "blood hound",
   "hound afghan": "afghan hound",
   "hound ibizan": "ibizan hound",
@@ -108,7 +112,6 @@ function getObfuscatedBreedName(currentBreed: string) {
   return currentBreed.replace(/[a-zA-Z]/g, "_");
 }
 
-
 function revealNextHint(currentBreed: string, hintedBreedName: string) {
   const indices = [];
   for (let i = 0; i < hintedBreedName.length; i++) {
@@ -122,6 +125,31 @@ function revealNextHint(currentBreed: string, hintedBreedName: string) {
   hintedBreedName = hintedBreedName.substring(0, randomIndex) + currentBreed[randomIndex] + hintedBreedName.substring(randomIndex + 1);
   return hintedBreedName;
 }
+
+function getTimerColor(timeLeft: number, total: number) {
+  const ratio = timeLeft / total
+  if (ratio > 0.5) return "#4caf50"
+  if (ratio > 0.25) return "#ffeb3b"
+  return "#f44336"
+}
+
+function getTimerSpeed(timeLeft: number, total: number) {
+  const ratio = timeLeft / total
+  console.log("Timer ratio:", ratio)
+  if (ratio > 0.5) return 1
+  if (ratio > 0.25) return 0.75
+  if (ratio == 0) return 0
+  return 0.5
+}
+
+type HistoryEntry = {
+  image: string;
+  correctBreed: string;
+  guesses: string[];
+  isCorrect: boolean;
+  timeUntilCorrect: number;
+};
+
 
 export default function Play() {
   const [params] = useSearchParams() 
@@ -166,15 +194,16 @@ export default function Play() {
     setHintedBreedName(getObfuscatedBreedName(currentBreed));
   }, [currentBreed]);
 
-  
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [currentGuesses, setCurrentGuesses] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState(timePerImage)
   const [shakeWrongAnswer, setShakeWrongAnswer] = useState(false);
   const [shakeCorrectAnswer, setShakeCorrectAnswer] = useState(false);
 
-  const intervalRef = useRef<number | null>(null);
-  const isMountedRef = useRef(false);
+  const intervalRef = useRef<number | undefined>(undefined);
   const lastRevealRef = useRef<number | null>(null);
   const isTransitioningRef = useRef(false);
+  const isSubmittingRef = useRef(false);
 
 
   function nextPage() {
@@ -182,62 +211,115 @@ export default function Play() {
     isTransitioningRef.current = true
     setHintedBreedName(currentBreed)
 
+    console.log("HISTORY LENGTH:", history.length, history);
+
     setTimeout(() => {
       setCurrentIndex(i => {
         const next = i + 1
         if (next < images.length) {
           setGuess("")
+          setCurrentGuesses([]); 
           setTimeLeft(timePerImage)
           lastRevealRef.current = null
           isTransitioningRef.current = false;
           return next
-        } else {
-            navigate(`/summary?difficulty=${difficulty}`)
-            return i
-        }})
-      }, 2000)
+        }
+
+        return i
+      })
+    }, 2000)
   }
   
   function handleSubmit(forceWrong = false) {
+    if (isSubmittingRef.current) return
+    isSubmittingRef.current = true
+
+    const newGuesses = [...currentGuesses, guess];
+    setCurrentGuesses(newGuesses);
+
     const correct = normalize(currentBreed) === normalize(guess)
+
     if (correct && !forceWrong) {
       setShakeCorrectAnswer(true);
       setTimeout(() => setShakeCorrectAnswer(false), 1000);
-      nextPage()
+      
+      const newEntry: HistoryEntry = { 
+        image: images[currentIndex], 
+        correctBreed: currentBreed, 
+        guesses: newGuesses, 
+        isCorrect: true, 
+        timeUntilCorrect: timePerImage - timeLeft, 
+      } 
+
+      setHistory(prev => { 
+        const updated = [...prev, newEntry]; 
+        if (currentIndex === images.length - 1) { 
+          navigate(`/summary?difficulty=${difficulty}`, { 
+            state: { history: updated } 
+          }); 
+        } else { 
+          nextPage(); 
+        } 
+        return updated; 
+      })
+      
     } else {
+      setGuess("")
       setShakeWrongAnswer(true);
       setTimeout(() => setShakeWrongAnswer(false), 1000);
+
+      setHistory(prev => { 
+        const updated = [...prev]; 
+        updated[currentIndex] = { 
+          image: images[currentIndex], 
+          correctBreed: currentBreed, 
+          guesses: newGuesses, 
+          isCorrect: false, 
+          timeUntilCorrect: timePerImage - timeLeft, 
+        }
+        return updated
+      })
     }
+
+    setTimeout(() => { 
+      isSubmittingRef.current = false; 
+    }, 300); 
   }
 
   useEffect(() => {
-    if (!isMountedRef.current) { 
-      isMountedRef.current = true 
-      return
-    }
 
-    if (intervalRef.current !== null) {
+    if (intervalRef.current !== undefined) {
       clearInterval(intervalRef.current);
+      intervalRef.current = undefined;
     }
 
     intervalRef.current = setInterval(() => {
+
+      if (isSubmittingRef.current || isTransitioningRef.current) return
+
+
       setTimeLeft(prev => {
-        if (isTransitioningRef.current) {
-          return prev;
-        }
-        
         if (prev < 1) {
-          handleSubmit(true)
-          nextPage()
-          // setCurrentIndex(i => {
-          //   const next = i + 1
-          //   if (next < images.length) {
-          //     return next
-          //   } else {
-          //     navigate(`/summary?difficulty=${difficulty}`)
-          //     return i 
-          //   }
-          // })
+          const newEntry: HistoryEntry = {
+            image: images[currentIndex],
+            correctBreed: currentBreed,
+            guesses: currentGuesses,
+            isCorrect: false,
+            timeUntilCorrect: timePerImage,
+          }
+          
+          setHistory(previousHistory =>{
+            const updated = [...previousHistory, newEntry]
+            if (currentIndex === images.length - 1) {
+              navigate(`/summary?difficulty=${difficulty}`, {
+                state: { history: updated }
+              })
+            } else {
+              nextPage()
+            }
+            return updated
+          })
+  
           return timePerImage
         }
         
@@ -257,30 +339,44 @@ export default function Play() {
       })
     }, 1000)
     return () => {
-      if (intervalRef.current) { 
+      if (intervalRef.current !== undefined) {
         clearInterval(intervalRef.current)
-        intervalRef.current = null
-      } 
+        intervalRef.current = undefined;
+      }
     }
-  }, [revealInterval, currentBreed, timePerImage])
+  }, [currentIndex, revealInterval, currentBreed, timePerImage])
   
 
 
-  return <Box minH="100vh" w="100%" position="relative" textAlign="center" bg="backgroundPrimary" color="textPrimary" overflow="hidden">
-    <Box position="relative" textAlign="center" w="100%">
-      <MotionHeading fontFamily="title" color="textPrimary" fontSize="2xl" p={2}
+  return <Box minH="100vh" w="100%" position="relative" textAlign="center" bg="backgroundPrimary" color="textPrimary" overflow="hidden" >
+    <Box position="relative" textAlign="center" w="100%" p={4}>
+      <MotionHeading fontFamily="title" color="textPrimary" fontSize="2xl"
+      key={getTimerSpeed(timeLeft, timePerImage)}
       animate={{
         scale: [1, 1.05, 1], 
         color: ["#fff", "#ddd", "#fff"], 
       }} 
       transition={{ 
-        duration: 1, 
+        duration: getTimerSpeed(timeLeft, timePerImage), 
         repeat: Infinity, 
         ease: "easeInOut", 
       }}>Time Left: {timeLeft}s</MotionHeading>
-    </Box>
-    
-    <Box position="relative" textAlign="center" w="100%">
+      <Box w="60%" h="12px" bg="rgba(255,255,255,0.15)" borderRadius="full" mx="auto" overflow="hidden" mb={4}>
+        <motion.div
+          style={{
+            height: "100%",
+            //backgroundColor: getTimerColor(timeLeft, timePerImage)
+          }}
+          animate={{
+            width: `${(timeLeft / timePerImage) * 100}%`,
+            backgroundColor: getTimerColor(timeLeft, timePerImage)
+          }}
+          transition={{
+            duration: 1,
+            ease: "linear",
+          }}
+        />
+      </Box>
       <Image src={images[currentIndex]} boxSize="400px" objectFit="contain" borderRadius="md" mx="auto"/>
 
       <Box position="relative" textAlign="center" w="100%">

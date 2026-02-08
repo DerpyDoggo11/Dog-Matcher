@@ -30,12 +30,10 @@ const config = defineConfig({
 export const system = createSystem(defaultConfig, config)
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
     <BrowserRouter>
       <ChakraProvider value={system}>
         <App />
       </ChakraProvider>
     </BrowserRouter>
-  </React.StrictMode>
 )
 
