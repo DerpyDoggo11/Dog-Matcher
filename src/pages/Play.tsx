@@ -11,7 +11,7 @@ const normalizeBreedString: Record<string, string> = { // <- Used AI to generate
   "leonberg": "leonberger",
   "shiba": "shiba inu",
   "malamute": "alaskan malamute",
-  "mexican hairless": "mexican hairless dog",
+  "mexicanhairless": "mexican hairless dog",
   "stbernard": "saint bernard",
   "african wild": "african wild dog",
   "bernese mountain": "bernese mountain dog",
@@ -77,6 +77,7 @@ const normalizeBreedString: Record<string, string> = { // <- Used AI to generate
   "sheepdog oldenglish": "old english sheepdog",
   "sheepdog shetland": "shetland sheepdog",
   "spitz japanese": "japanese spitz",
+  "pembroke": "pembroke welsh corgi",
 };
 
 const rawEasyModeBreeds = [ // <- also used ai here
@@ -143,7 +144,10 @@ function extractBreed(url: string) {
 
   const key = breed.toLowerCase();
   if (normalizeBreedString[key]) {
-    return normalizeBreedString[key];
+    return normalizeBreedString[key]
+      .split(" ")
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
   }
 
   return breed
@@ -222,6 +226,7 @@ async function fetchDogImages(imageAmounts = 5, difficulty: string = "easy") { /
 export default function Play() {
   const [params] = useSearchParams();
   const difficulty = params.get("difficulty") || "unknown";
+  const imageCount = parseInt(params.get("imageCount") || "5");
 
   const { timePerImage, hintFrequency } = useMemo(() => {
     if (difficulty === "medium") {
@@ -242,13 +247,13 @@ export default function Play() {
     if (isBreedLoaded.current == true) return;
     isBreedLoaded.current = true
     async function load() { 
-      const imgs = await fetchDogImages(5, difficulty); 
+      const imgs = await fetchDogImages(imageCount, difficulty); 
       setImages(imgs); 
     } 
 
     load();
     console.log("fetching images")
-  }, [difficulty]);
+  }, [difficulty, imageCount]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [guess, setGuess] = useState("");
